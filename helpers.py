@@ -1,9 +1,12 @@
 import os
 import requests
 import urllib.parse
+import decimal
 
 from flask import redirect, render_template, request, session
 from functools import wraps
+from sqlalchemy.sql import text
+
 
 
 def apology(message, code=400):
@@ -61,3 +64,29 @@ def lookup(symbol):
 def usd(value):
     """Format value as USD."""
     return f"${value:,.2f}"
+
+
+def get_portfolio(db, user_id):
+     cmd = """ SELECT symbol, SUM(shares) FROM transactions t
+            JOIN users u ON u.id = t.user_id
+            WHERE u.id = :user_id
+            GROUP BY t.symbol
+            HAVING SUM(shares) > 0 """
+     portfolio = db.engine.execute(text(cmd), user_id=user_id)
+     portfolio = [{column: value for column, value in rowproxy.items()} for rowproxy in portfolio]
+     return portfolio
+
+
+def get_cash(db, user_id):
+    cash_cmd = "SELECT * FROM users u WHERE u.id = :id"
+    result_cash = db.engine.execute(text(cash_cmd), id=user_id)
+    list_cash = list(result_cash)
+    cash = list_cash[0]['cash']
+    return cash
+
+
+def update_cash(db, old, amount, user_id):
+     update_cash_cmd = "UPDATE users SET cash = :new_cash WHERE id = :id"
+     db.engine.execute(text(update_cash_cmd),
+                       new_cash=(old + decimal.Decimal(amount)), id=user_id)
+

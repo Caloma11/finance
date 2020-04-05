@@ -1,4 +1,6 @@
 import os
+import decimal
+import re
 
 from cs50 import SQL
 from flask import Flask, flash, jsonify, redirect, render_template, request, session
@@ -7,8 +9,11 @@ from tempfile import mkdtemp
 from werkzeug.exceptions import default_exceptions, HTTPException, InternalServerError
 from werkzeug.security import check_password_hash, generate_password_hash
 from collections import Counter
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.sql import text
 
-from helpers import apology, login_required, lookup, usd
+
+from helpers import apology, login_required, lookup, usd, get_portfolio, get_cash, update_cash
 
 # Configure application
 app = Flask(__name__)
@@ -33,11 +38,14 @@ app.config["SESSION_PERMANENT"] = False
 app.config["SESSION_TYPE"] = "filesystem"
 Session(app)
 
-# Configure CS50 Library to use SQLite database
-db = SQL("sqlite:///finance.db")
+# Configure database
 
-db.execute("CREATE TABLE IF NOT EXISTS 'users' ('id' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 'username' TEXT NOT NULL, 'hash' TEXT NOT NULL, 'cash' NUMERIC NOT NULL DEFAULT 10000.00 );")
-db.execute("CREATE TABLE IF NOT EXISTS 'transactions' ('id' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 'symbol' TEXT NOT NULL, 'shares' INTEGER NOT NULL, 'price' REAL NOT NULL, 'created_at' TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, 'user_id' INTEGER, CONSTRAINT fk_users FOREIGN KEY (user_id) REFERENCES users(id));")
+app.config['SQLALCHEMY_DATABASE_URI'] = "postgres://dxdszuptkkorhs:257f2b303f0a01e884ec6f3021c13e2a4408ef11612f1774c0023d915c2a0c5c@ec2-52-200-119-0.compute-1.amazonaws.com:5432/de4liqu1p4k75j"
+db = SQLAlchemy(app)
+
+
+# db.execute("CREATE TABLE IF NOT EXISTS 'users' ('id' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 'username' TEXT NOT NULL, 'hash' TEXT NOT NULL, 'cash' NUMERIC NOT NULL DEFAULT 10000.00 );")
+# db.execute("CREATE TABLE IF NOT EXISTS 'transactions' ('id' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 'symbol' TEXT NOT NULL, 'shares' INTEGER NOT NULL, 'price' REAL NOT NULL, 'created_at' TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, 'user_id' INTEGER, CONSTRAINT fk_users FOREIGN KEY (user_id) REFERENCES users(id));")
 
 
 
@@ -49,21 +57,24 @@ if not os.environ.get("API_KEY"):
 @app.route("/")
 @login_required
 def index():
-    portfolio = db.execute("SELECT symbol, SUM(shares) AS sum, cash FROM transactions t JOIN users u ON u.id = t.user_id WHERE u.id = ? GROUP BY t.symbol HAVING sum > 0", session["user_id"])
+
+
+    cash = get_cash(db, session["user_id"])
+
+    portfolio = get_portfolio(db, session["user_id"])
 
     if len(portfolio) > 0:
-        cash = round(portfolio[0]["cash"], 2)
+        # cash = round(portfolio[0]["cash"], 2)
         stocks_value = 0
         for stock in portfolio:
             updated_stock = lookup(stock["symbol"])
             stock["name"] = updated_stock["name"]
-            stock["price"] = updated_stock["price"]
+            stock["price"] = round(decimal.Decimal(updated_stock["price"]), 2)
             stocks_value += (stock["price"] * stock["sum"])
         empty = False
     else:
         stocks_value = 0
         empty = True
-        cash = db.execute("SELECT cash FROM users u WHERE u.id = ?", session["user_id"])[0]["cash"]
 
     return render_template("index.html", portfolio=portfolio, cash=round(cash, 2), empty=empty, stocks_value=stocks_value)
 
@@ -87,12 +98,22 @@ def buy():
         elif int(shares) == 0:
             return apology("Quantity must be at least 1")
 
-        cash = db.execute("SELECT cash FROM users WHERE id = ?", session["user_id"])[0]["cash"]
+        cash = get_cash(db, session["user_id"])
+
         total_price = int(shares) * stock["price"]
         if cash >= total_price:
-            db.execute("UPDATE users SET cash = ? WHERE id = ?", (cash - total_price), session["user_id"])
-            db.execute("INSERT INTO transactions (user_id, symbol, shares, price) VALUES (?, ?, ?, ?)",
-            session["user_id"], symbol.lower(), shares, stock["price"])
+
+            update_cash(db, cash, (0 - total_price), session["user_id"])
+
+
+            insert_transaction_cmd = """INSERT INTO transactions (user_id, symbol, shares, price, id)
+                                        VALUES (:user_id, :symbol, :shares,
+                                        :price, nextval('id_transactions'))"""
+
+
+
+            db.engine.execute(text(insert_transaction_cmd),
+            user_id=session["user_id"], symbol=symbol.lower(), shares=shares, price=stock["price"])
             return redirect("/")
         else:
             return(apology("you don't have enough money."))
@@ -101,8 +122,13 @@ def buy():
 @app.route("/history")
 @login_required
 def history():
-    transactions = db.execute("SELECT * from transactions WHERE user_id = ?",
-                              session["user_id"])
+    cmd = "SELECT * from transactions WHERE user_id = :id"
+    transactions = db.engine.execute(text(cmd), id=session["user_id"])
+    transactions = [{column: value for column, value in rowproxy.items()} for rowproxy in transactions]
+    for transaction in transactions:
+        transaction["created_at"] = re.sub(r"\.\w*", "", str(transaction["created_at"]))
+
+
     empty = True if len(transactions) == 0 else False
     return render_template("history.html", transactions=transactions, empty=empty)
 
@@ -126,8 +152,13 @@ def login():
             return apology("must provide password", 403)
 
         # Query database for username
-        rows = db.execute("SELECT * FROM users WHERE username = :username",
-                          username=request.form.get("username"))
+        cmd = "SELECT * FROM users WHERE username = :username"
+        username = request.form.get("username")
+        rows = db.engine.execute(text(cmd), username = username)
+
+        rows = list(rows)
+        print(rows[0])
+        print(rows[0]["hash"])
 
         # Ensure username exists and password is correct
         if len(rows) != 1 or not check_password_hash(rows[0]["hash"], request.form.get("password")):
@@ -185,20 +216,35 @@ def register():
             return apology("must provide password", 403)
 
         # Query database for username
-        rows = db.execute("SELECT * FROM users WHERE username = :username",
-                          username=request.form.get("username"))
+        cmd = "SELECT * FROM users WHERE username = :username"
+        username = request.form.get("username")
+        rows = db.engine.execute(text(cmd), username = username)
+
+        rows = list(rows)
+
+        print(rows)
+
+        # rows = db.engine.execute("SELECT * FROM users WHERE username = :username",
+        #                   username=request.form.get("username"))
+
+
 
         # Ensure username exists and password is correct
-        if len(rows) == 1:
+        if len((rows)) == 1:
             return apology("Username taken")
         else:
-            db.execute("INSERT INTO users (username, hash) VALUES (?, ?)", request.form.get("username"), generate_password_hash(request.form.get("password")) )
+
+            cmd = "INSERT INTO users (username, hash, id) VALUES (:username, :hash, nextval('id_users'))"
+            rows = db.engine.execute(text(cmd), username = username, hash = generate_password_hash(request.form.get("password")))
+
             return render_template("login.html")
 
 @app.route("/sell", methods=["GET", "POST"])
 @login_required
 def sell():
-    portfolio = db.execute("SELECT symbol, SUM(shares) AS sum, cash FROM transactions t JOIN users u ON u.id = t.user_id WHERE u.id = ? GROUP BY t.symbol HAVING sum > 0", session["user_id"])
+
+    portfolio = get_portfolio(db, session["user_id"])
+
     if len(portfolio) == 0:
         return apology("You don't have stocks to sell")
     else:
@@ -224,11 +270,21 @@ def sell():
 
             stock = lookup(symbol)
             total_price = int(shares) * stock["price"]
-            cash = portfolio[0]["cash"]
-            db.execute("UPDATE users SET cash = ? WHERE id = ?", (cash + total_price),
-             session["user_id"])
-            db.execute("INSERT INTO transactions (user_id, symbol, shares, price) VALUES (?, ?, ?, ?)",
-            session["user_id"], symbol.lower(), ( 0 - int(shares)), stock["price"])
+
+            cash = get_cash(db, session["user_id"])
+
+
+            update_cash(db, cash, total_price, session["user_id"])
+
+
+            insert_transaction_cmd = """INSERT INTO transactions (user_id, symbol, shares, price, id)
+                                        VALUES (:user_id, :symbol, :shares,
+                                        :price, nextval('id_transactions'))"""
+
+
+            db.engine.execute(text(insert_transaction_cmd),
+            user_id=session["user_id"], symbol=symbol.lower(), shares=(0 - int(shares)), price=stock["price"])
+
             return redirect("/")
 
 
@@ -247,8 +303,12 @@ def top_up():
             return apology("Amount must be bigger than 0")
 
 
-    cash = db.execute("SELECT cash FROM users WHERE id = ?", session["user_id"])[0]["cash"]
-    db.execute("UPDATE users SET cash = ? WHERE id = ?", (cash + int(amount)), session["user_id"])
+
+        cash = get_cash(db, session["user_id"])
+
+        update_cash(db, cash, amount, session["user_id"])
+
+
 
     return redirect("/")
 
@@ -263,3 +323,10 @@ def errorhandler(e):
 # Listen for errors
 for code in default_exceptions:
     app.errorhandler(code)(errorhandler)
+
+
+
+
+# TO REFACTOR:
+#  def create_transaction(amount, symbol):
+#  def to_dict(result_proxy):
