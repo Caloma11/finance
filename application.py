@@ -161,8 +161,6 @@ def login():
         rows = db.engine.execute(text(cmd), username = username)
 
         rows = list(rows)
-        print(rows[0])
-        print(rows[0]["hash"])
 
         # Ensure username exists and password is correct
         if len(rows) != 1 or not check_password_hash(rows[0]["hash"], request.form.get("password")):
@@ -226,8 +224,6 @@ def register():
 
         rows = list(rows)
 
-        print(rows)
-
         # rows = db.engine.execute("SELECT * FROM users WHERE username = :username",
         #                   username=request.form.get("username"))
 
@@ -253,7 +249,6 @@ def sell():
         return apology("You don't have stocks to sell")
     else:
         symbols = list(map(lambda stock: stock["symbol"].upper(), portfolio))
-        print(request.form.get("symbol"))
         if request.method == "GET":
             return render_template("sell.html", symbols=symbols)
         else:
