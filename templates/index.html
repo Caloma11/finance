@@ -1,0 +1,52 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Index
+{% endblock %}
+
+{% block main %}
+
+
+
+
+
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Symbol</th>
+                <th>Name</th>
+                <th>Shares</th>
+                <th>Price</th>
+                <th>TOTAL</th>
+            </tr>
+        </thead>
+        <tfoot>
+            <tr>
+                <td colspan="4"></td>
+                <td><strong>${{ (cash + stocks_value)|round(2) }}</strong></td>
+            </tr>
+        </tfoot>
+        <tbody>
+
+      {% if not empty %}
+          {% for stock in portfolio %}
+
+                    <tr>
+                        <td>{{ stock["symbol"].upper() }}</td>
+                        <td>{{ stock["name"] }}</td>
+                        <td>{{ stock["sum"] }}</td>
+                        <td>${{ stock["price"] }}</td>
+                        <td>${{ (stock["price"] * stock["sum"])|round(2) }}</td>
+                    </tr>
+
+          {% endfor %}
+      {% endif %}
+            <tr>
+                <td colspan="4">CASH</td>
+                <td>${{cash}}</td>
+            </tr>
+        </tbody>
+    </table>
+
+
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Get quote
+{% endblock %}
+
+{% block main %}
+
+  {% if stock %}
+
+    <p>A share of {{stock["name"]}} ({{stock["symbol"]}}) costs ${{stock["price"]}}.</p>
+
+  {% else %}
+
+
+  <div class="banner" style="background-image: linear-gradient(rgba(0,0,0,0.4),rgba(0,0,0,0.4)), url(https://i.imgflip.com/3388rw.png);">
+    <div class="container">
+      <form action="/top_up" method="post">
+          <div class="form-group d-flex justify-content-center">
+              <input autocomplete="off" autofocus class="form-control w-25" name="amount" placeholder="amount" type="number">
+          </div>
+
+          <button id ="topup-btn" class="btn btn-primary" type="submit">Top Up</button>
+      </form>
+    </div>
+  </div>
+
+
+
+
+  {% endif %}
+
+{% endblock %}
+
+
+

@@ -1,0 +1,58 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Log In
+{% endblock %}
+
+{% block main %}
+    <form action="/register" method="post">
+        <div class="form-group">
+            <label for="username">Username</label>
+            <input autocomplete="off" autofocus class="form-control" name="username" placeholder="Username" type="text">
+        </div>
+        <div class="form-group">
+            <label for="password">Password</label>
+
+            <input id ="pass" class="form-control" name="password" placeholder="Password" type="password">
+        </div>
+          <div class="form-group conf-group">
+            <label for="confirmation">Confirmation</label>
+
+            <input id="conf-pass"class="form-control" name="confirmation" placeholder="Confirm Password" type="confirmation">
+        </div>
+        <button id ="register-btn" class="btn btn-primary" type="submit" disabled="true">Register</button>
+    </form>
+
+<script>
+  const form = document.querySelector('form');
+  const password = document.getElementById('pass');
+  const button = document.getElementById('register-btn');
+  const confirmation = document.getElementById('conf-pass');
+  const confGroup = document.querySelector('.conf-group');
+
+    const validatePassword = () => {
+      if (password.value !== "" && password.value === confirmation.value) {
+        button.disabled = false;
+        const warning = document.querySelector('.conf-warn');
+        if (warning) {
+          warning.remove()
+        }
+      } else {
+        const warning = document.querySelector('.conf-warn');
+
+        if (!warning) {
+          confGroup.insertAdjacentHTML('beforeend', "<p class='conf-warn pt-2'>Should match  password.</p>");
+        }
+        button.disabled = true;
+      }
+    }
+
+  password.addEventListener('input', validatePassword);
+  confirmation.addEventListener('input', validatePassword);
+
+
+
+</script>
+{% endblock %}
+
+
