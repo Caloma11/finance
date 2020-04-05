@@ -35,7 +35,7 @@ app.jinja_env.filters["usd"] = usd
 
 # Configure session to use filesystem (instead of signed cookies) (commented out for production)
 
-# app.config["SESSION_FILE_DIR"] = 'redis'
+# app.config["SESSION_FILE_DIR"] = 'mkdtemp()'
 # app.config["SESSION_PERMANENT"] = False
 app.config['SECRET_KEY'] = os.environ.get("SECRET_KEY")
 app.config["SESSION_TYPE"] = "filesystem"
