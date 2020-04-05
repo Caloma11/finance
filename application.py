@@ -91,7 +91,7 @@ def buy():
         total_price = int(shares) * stock["price"]
         if cash >= total_price:
             db.execute("UPDATE users SET cash = ? WHERE id = ?", (cash - total_price), session["user_id"])
-            db.execute("INSERT INTO transactions (user_id, symbol, shares, price) VALUES (?, ?, ?, ?)",
+            db.execute("INSERT INTO transactions (user_id, symbol, shares, price, id) VALUES (?, ?, ?, ?, nextval('id_transactions'))",
             session["user_id"], symbol.lower(), shares, stock["price"])
             return redirect("/")
         else:
@@ -192,7 +192,7 @@ def register():
         if len(rows) == 1:
             return apology("Username taken")
         else:
-            db.execute("INSERT INTO users (username, hash) VALUES (?, ?)", request.form.get("username"), generate_password_hash(request.form.get("password")) )
+            db.execute("INSERT INTO users (username, hash, id) VALUES (?, ?, nextval('id_users'))", request.form.get("username"), generate_password_hash(request.form.get("password")) )
             return render_template("login.html")
 
 @app.route("/sell", methods=["GET", "POST"])
@@ -227,7 +227,7 @@ def sell():
             cash = portfolio[0]["cash"]
             db.execute("UPDATE users SET cash = ? WHERE id = ?", (cash + total_price),
              session["user_id"])
-            db.execute("INSERT INTO transactions (user_id, symbol, shares, price) VALUES (?, ?, ?, ?)",
+            db.execute("INSERT INTO transactions (user_id, symbol, shares, price, id) VALUES (?, ?, ?, ?, nextval('id_transactions'))",
             session["user_id"], symbol.lower(), ( 0 - int(shares)), stock["price"])
             return redirect("/")
 

@@ -12,3 +12,11 @@ CREATE TABLE IF NOT EXISTS 'transactions'
   'price' REAL NOT NULL,
   'created_at' TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   'user_id' INTEGER, CONSTRAINT fk_users FOREIGN KEY (user_id) REFERENCES users(id));
+
+
+
+-- stonk-it::DATABASE=> create sequence id_users
+-- stonk-it::DATABASE-> start 1
+-- stonk-it::DATABASE-> increment 1
+-- stonk-it::DATABASE-> NO MAXVALUE
+-- stonk-it::DATABASE-> CACHE 1;
