@@ -33,8 +33,8 @@ app.config["SESSION_PERMANENT"] = False
 app.config["SESSION_TYPE"] = "filesystem"
 Session(app)
 
-# Configure CS50 Library to use SQLite database
-db = SQL("sqlite:///finance.db")
+# Configure database
+db = SQL("postgres://dxdszuptkkorhs:257f2b303f0a01e884ec6f3021c13e2a4408ef11612f1774c0023d915c2a0c5c@ec2-52-200-119-0.compute-1.amazonaws.com:5432/de4liqu1p4k75j")
 
 db.execute("CREATE TABLE IF NOT EXISTS 'users' ('id' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 'username' TEXT NOT NULL, 'hash' TEXT NOT NULL, 'cash' NUMERIC NOT NULL DEFAULT 10000.00 );")
 db.execute("CREATE TABLE IF NOT EXISTS 'transactions' ('id' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 'symbol' TEXT NOT NULL, 'shares' INTEGER NOT NULL, 'price' REAL NOT NULL, 'created_at' TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, 'user_id' INTEGER, CONSTRAINT fk_users FOREIGN KEY (user_id) REFERENCES users(id));")
