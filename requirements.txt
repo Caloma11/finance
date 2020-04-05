@@ -4,3 +4,4 @@ Flask-Session
 requests
 gunicorn
 Werkzeug==0.16.0
+psycopg2
